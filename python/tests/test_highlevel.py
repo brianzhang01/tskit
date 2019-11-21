@@ -1642,7 +1642,7 @@ class TestTree(HighLevelTestCase):
         t1 = tree
         t2 = tests.PythonTree.from_tree(t1)
         self.assertEqual(list(t1.nodes()), list(t2.nodes()))
-        orders = ["inorder", "postorder", "levelorder", "breadthfirst"]
+        orders = ["inorder", "postorder", "levelorder", "breadthfirst", "minlex_postorder"]
         if tree.num_roots == 1:
             self.assertRaises(ValueError, list, t1.nodes(order="bad order"))
             self.assertEqual(list(t1.nodes()), list(t1.nodes(t1.get_root())))

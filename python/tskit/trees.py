@@ -1473,6 +1473,60 @@ class Tree(object):
     def _timedesc_traversal(self, u):
         yield from sorted(self.nodes(u, order="levelorder"), key=self.time, reverse=True)
 
+    def _minlex_postorder_traversal(self, u):
+        """Postorder traversal that visits leaves in minimum lexicographic order.
+
+        Minlex stands for minimum lexicographic. We wish to visit a tree in such
+        a way that the leaves visited, when their IDs are listed out, have
+        minimum lexicographic order. This is a useful ordering for drawing
+        multiple Trees of a TreeSequence, as it leads to more consistency
+        between adjacent Trees.
+        """
+        stack = collections.deque([u])
+        parent = NULL
+        # For perf we store these to avoid lookups in the tight loop
+        pop = stack.pop
+        extend = stack.extend
+        get_children = self.children
+        get_parent = self.get_parent
+
+        # We store a dictionary from internal node ID to min leaf under the node
+        # First we compute this dictionary using a postorder traversal
+        min_leaf_dict = {}
+        # Note: the usual style is to be explicit about what we're testing
+        # and use while len(stack) > 0, but this form is slightly faster.
+        while stack:
+            v = stack[-1]
+            children = [] if v == parent else get_children(v)
+            if children:
+                extend(reversed(children))
+            else:
+                if v != parent:
+                    # at a leaf node
+                    min_leaf_dict[v] = v
+                else:
+                    # at a parent after finishing all its children
+                    min_leaf_dict[v] = min([min_leaf_dict[c] for c in get_children(v)])
+                parent = get_parent(v)
+                pop()
+
+        # Now we do a second postorder traversal
+        stack.clear()
+        extend([u])
+        parent = NULL
+        # Note: the usual style is to be explicit about what we're testing
+        # and use while len(stack) > 0, but this form is slightly faster.
+        while stack:
+            v = stack[-1]
+            children = [] if v == parent else get_children(v)
+            if children:
+                children_min = [[min_leaf_dict[c], c] for c in get_children(v)]
+                children_min.sort()
+                extend(reversed([element[1] for element in children_min]))
+            else:
+                parent = get_parent(v)
+                yield pop()
+
     def nodes(self, root=None, order="preorder"):
         """
         Returns an iterator over the nodes in this tree. If the root parameter
@@ -1482,8 +1536,8 @@ class Tree(object):
 
         :param int root: The root of the subtree we are traversing.
         :param str order: The traversal ordering. Currently 'preorder',
-            'inorder', 'postorder', 'levelorder' ('breadthfirst'), 'timeasc' and
-            'timedesc' are supported.
+            'inorder', 'postorder', 'levelorder' ('breadthfirst'), 'timeasc',
+            'timedesc' and 'minlex_postorder' are supported.
         :return: An iterator over the nodes in the tree in some traversal order.
         :rtype: collections.abc.Iterable
         """
@@ -1494,7 +1548,8 @@ class Tree(object):
             "levelorder": self._levelorder_traversal,
             "breadthfirst": self._levelorder_traversal,
             "timeasc": self._timeasc_traversal,
-            "timedesc": self._timedesc_traversal
+            "timedesc": self._timedesc_traversal,
+            "minlex_postorder": self._minlex_postorder_traversal
         }
         try:
             iterator = methods[order]
